@@ -75,11 +75,13 @@ docker rm -f mc-bedrock
 
 - Die UI (Container `realm-switcher-ui`, bewusst *nicht* mit `mc-realm-` Präfix benannt, damit sie sich nicht selbst als Welt-Container erkennt) läuft als eigener Container, gemountet mit dem Docker-Socket (`/var/run/docker.sock`) sowie read-only mit dem `worlds`-Ordner (nur zum Auflisten der vorhandenen Welten).
 - Klick auf eine Welt-Kachel → aktuell laufender `mc-realm-*`-Container wird gestoppt, der Ziel-Container erstellt (falls noch nicht vorhanden) und gestartet.
+- Die laufende Welt hat zusätzlich einen "Stoppen"-Button, um den Server komplett auszuschalten, ohne eine andere Welt zu starten (z.B. wenn niemand spielt). Dank `RestartPolicy: unless-stopped` bleibt sie danach auch nach einem Windows-/Docker-Neustart aus, bis sie wieder aktiv gestartet wird.
 - Alle `mc-realm-*`-Container teilen sich denselben `-v <data>:/data`-Mount wie der bisherige Server; `LEVEL_NAME` (= Weltordnername) sorgt dafür, dass jeweils die richtige Welt geladen wird.
 - Restart-Policy `unless-stopped`: Nach einem Windows-/Docker-Neustart startet automatisch wieder die zuletzt aktive Welt.
 
 ## API
 
-- `GET /api/worlds` - Liste aller Welten mit Status (`running`, `stopped`, `starting`, `not_created`).
+- `GET /api/worlds` - Liste aller Welten mit Status (`running`, `stopped`, `starting`, `stopping`, `not_created`).
 - `POST /api/worlds/:id/activate` - wechselt zur angegebenen Welt (asynchron, Status per Polling abfragen).
+- `POST /api/worlds/:id/stop` - stoppt die angegebene Welt, ohne eine andere zu starten (asynchron).
 - `GET /api/status` - aktuell aktive Welt.

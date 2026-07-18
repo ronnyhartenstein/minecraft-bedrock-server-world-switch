@@ -84,6 +84,12 @@ h1 {
 
 .tile.running {
   border-color: var(--green);
+  cursor: default;
+}
+
+.tile.running:hover {
+  transform: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
 .tile.disabled {
@@ -120,7 +126,8 @@ h1 {
   background: var(--gray);
 }
 
-.badge.starting {
+.badge.starting,
+.badge.stopping {
   background: var(--yellow);
   color: #3a2e00;
 }
@@ -186,4 +193,10 @@ h1 {
 
 .btn-primary {
   background: var(--accent);
+}
+
+.btn-stop {
+  background: #c0392b;
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
 }

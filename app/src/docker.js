@@ -106,10 +106,20 @@ async function switchToWorld(world) {
   });
 }
 
+// Stops a world's container without starting anything else, i.e. turns the
+// server off entirely. RestartPolicy "unless-stopped" honors this: an
+// explicit stop keeps it off even across a Docker/Windows restart.
+async function stopWorld(world) {
+  const container = await findContainerByName(world.containerName);
+  if (!container) return;
+  await stopContainer(container.id);
+}
+
 module.exports = {
   docker,
   listRealmContainers,
   getStatusByContainerName,
   ensureContainerForWorld,
   switchToWorld,
+  stopWorld,
 };

@@ -8,12 +8,14 @@ const STATUS_LABELS = {
   running: "Läuft",
   stopped: "Gestoppt",
   starting: "Startet…",
+  stopping: "Wird gestoppt…",
   not_created: "Noch nie gestartet",
 };
 
 let pollTimer = null;
-let switchTargetId = null;
-let switchDeadline = null;
+let pendingId = null; // world.id currently switching-to or being stopped
+let pendingDeadline = null;
+let pendingKind = null; // "start" | "stop"
 
 function render(worlds) {
   worldsEl.innerHTML = "";
@@ -40,7 +42,7 @@ function render(worlds) {
 
     const badge = document.createElement("div");
     badge.className = `badge ${world.status}`;
-    if (world.status === "starting") {
+    if (world.status === "starting" || world.status === "stopping") {
       const spinner = document.createElement("span");
       spinner.className = "spinner";
       badge.appendChild(spinner);
@@ -56,8 +58,17 @@ function render(worlds) {
       tile.appendChild(warn);
     }
 
-    if (!world.missing && world.status !== "running" && world.status !== "starting") {
-      tile.addEventListener("click", () => confirmSwitch(world));
+    if (world.status === "running") {
+      const stopBtn = document.createElement("button");
+      stopBtn.className = "btn btn-stop";
+      stopBtn.textContent = "Stoppen";
+      stopBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        confirmStop(world);
+      });
+      tile.appendChild(stopBtn);
+    } else if (!world.missing && world.status !== "starting" && world.status !== "stopping") {
+      tile.addEventListener("click", () => confirmSwitch(world, worlds));
     }
 
     worldsEl.appendChild(tile);
@@ -75,15 +86,20 @@ async function refresh() {
     const worlds = await fetchWorlds();
     render(worlds);
 
-    if (switchTargetId) {
-      const target = worlds.find((w) => w.id === switchTargetId);
-      if (target && target.status === "running") {
-        switchTargetId = null;
-      } else if (Date.now() > switchDeadline) {
-        switchTargetId = null;
+    if (pendingId) {
+      const target = worlds.find((w) => w.id === pendingId);
+      const done =
+        (pendingKind === "start" && target && target.status === "running") ||
+        (pendingKind === "stop" && target && target.status !== "running" && target.status !== "stopping");
+      if (done) {
+        pendingId = null;
+        pendingKind = null;
+      } else if (Date.now() > pendingDeadline) {
+        pendingId = null;
+        pendingKind = null;
         worldsEl.insertAdjacentHTML(
           "afterbegin",
-          '<p class="error">Wechsel dauert ungewöhnlich lange – bitte prüfen.</p>'
+          '<p class="error">Das dauert ungewöhnlich lange – bitte prüfen.</p>'
         );
       }
     }
@@ -92,16 +108,14 @@ async function refresh() {
   }
 }
 
-function confirmSwitch(world) {
-  confirmText.textContent = `Zu "${world.displayName}" wechseln? Der aktuell laufende Server wird gestoppt.`;
+function confirmAction(text, onConfirm) {
+  confirmText.textContent = text;
   overlay.classList.remove("hidden");
 
   const onYes = async () => {
     overlay.classList.add("hidden");
     cleanup();
-    switchTargetId = world.id;
-    switchDeadline = Date.now() + 90_000;
-    await fetch(`/api/worlds/${world.id}/activate`, { method: "POST" });
+    await onConfirm();
     refresh();
   };
   const onNo = () => {
@@ -114,6 +128,29 @@ function confirmSwitch(world) {
   }
   confirmYes.addEventListener("click", onYes);
   confirmNo.addEventListener("click", onNo);
+}
+
+function confirmSwitch(world, allWorlds) {
+  const runningElsewhere = allWorlds.some((w) => w.status === "running" && w.id !== world.id);
+  const text = runningElsewhere
+    ? `Zu "${world.displayName}" wechseln? Der aktuell laufende Server wird gestoppt.`
+    : `"${world.displayName}" starten?`;
+
+  confirmAction(text, async () => {
+    pendingId = world.id;
+    pendingKind = "start";
+    pendingDeadline = Date.now() + 90_000;
+    await fetch(`/api/worlds/${world.id}/activate`, { method: "POST" });
+  });
+}
+
+function confirmStop(world) {
+  confirmAction(`"${world.displayName}" stoppen? Niemand kann dann mehr auf den Server.`, async () => {
+    pendingId = world.id;
+    pendingKind = "stop";
+    pendingDeadline = Date.now() + 60_000;
+    await fetch(`/api/worlds/${world.id}/stop`, { method: "POST" });
+  });
 }
 
 refresh();

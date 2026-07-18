@@ -3,15 +3,16 @@ const express = require("express");
 
 const { PORT } = require("./src/config");
 const { syncWorlds, loadConfig } = require("./src/worlds");
-const { switchToWorld, getStatusByContainerName } = require("./src/docker");
+const { switchToWorld, stopWorld, getStatusByContainerName } = require("./src/docker");
 
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Tracks a world that is currently switching to, so the UI can show
-// "starting..." even before the container reaches "running" state.
+// Tracks a world that is currently switching to / being stopped, so the UI
+// can show "starting..." / "stopping..." before the container reflects it.
 let switching = null;
+let stopping = null;
 
 async function worldsWithStatus() {
   const worlds = syncWorlds();
@@ -22,6 +23,7 @@ async function worldsWithStatus() {
     if (dockerState === "running") status = "running";
     else if (dockerState) status = "stopped";
     if (switching === world.id && status !== "running") status = "starting";
+    if (stopping === world.id && status === "running") status = "stopping";
     return { ...world, status };
   });
 }
@@ -38,7 +40,9 @@ app.get("/api/worlds", async (req, res) => {
 app.get("/api/status", async (req, res) => {
   try {
     const worlds = await worldsWithStatus();
-    const active = worlds.find((w) => w.status === "running" || w.status === "starting");
+    const active = worlds.find(
+      (w) => w.status === "running" || w.status === "starting" || w.status === "stopping"
+    );
     res.json({ activeWorldId: active ? active.id : null, worlds });
   } catch (err) {
     console.error(err);
@@ -63,6 +67,23 @@ app.post("/api/worlds/:id/activate", async (req, res) => {
     console.error(`Fehler beim Wechsel zu ${world.id}:`, err.message);
   } finally {
     switching = null;
+  }
+});
+
+app.post("/api/worlds/:id/stop", async (req, res) => {
+  const { worlds } = loadConfig();
+  const world = worlds.find((w) => w.id === req.params.id);
+  if (!world) return res.status(404).json({ error: "Welt nicht gefunden" });
+
+  res.status(202).json({ ok: true });
+
+  stopping = world.id;
+  try {
+    await stopWorld(world);
+  } catch (err) {
+    console.error(`Fehler beim Stoppen von ${world.id}:`, err.message);
+  } finally {
+    stopping = null;
   }
 });
 
