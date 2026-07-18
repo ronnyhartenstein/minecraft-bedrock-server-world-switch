@@ -4,7 +4,7 @@ Kleine Web-UI, um zwischen mehreren Minecraft-Bedrock-Welten umzuschalten, ohne 
 
 ## Voraussetzungen
 
-- Docker Desktop unter Windows (mit WSL2- oder Hyper-V-Backend).
+- Windows 11 mit Docker Desktop (WSL2-Backend empfohlen, funktioniert aber auch mit Hyper-V).
 - Die vorhandenen Welten liegen unter `bedrock-server-docker/data/worlds/<weltname>` (ein Unterordner pro Welt).
 
 ## Einrichtung
@@ -53,6 +53,15 @@ Beim ersten Start werden alle vorhandenen Weltordner automatisch erkannt und mit
   }
 }
 ```
+
+## Hinweise für Windows 11
+
+- **Docker Desktop muss laufen, bevor `docker compose up` ausgeführt wird**, und für automatisches Hochfahren nach einem Windows-Neustart unter *Settings → General* die Option „Start Docker Desktop when you sign in“ aktivieren. Nur so greift die `restart: unless-stopped`-Policy zuverlässig (Docker selbst startet den zuletzt aktiven Welt-Container erst, wenn der Daemon wieder läuft).
+- **Docker-Socket-Mount funktioniert auf Windows transparent**: `/var/run/docker.sock` wird von Docker Desktop automatisch auf den internen Named-Pipe-Mechanismus (`\\.\pipe\docker_engine`) gemappt - dafür ist keine zusätzliche Konfiguration nötig, es muss aber Docker **Desktop** sein (nicht ein reiner WSL2-Docker-Engine ohne Desktop-Integration).
+- **File Sharing**: Liegt dieses Projekt bzw. der `bedrock-server-docker`-Ordner außerhalb des Standard-Nutzerverzeichnisses (`C:\Users\...`), z.B. auf einem anderen Laufwerk, muss der jeweilige Pfad unter *Settings → Resources → File Sharing* freigegeben werden, sonst schlägt der Bind-Mount mit einem Berechtigungsfehler fehl.
+- **`HOST_DATA_PATH`-Format**: Läuft `docker compose` direkt aus PowerShell/CMD heraus, den Windows-Pfad mit Backslashes verwenden (`C:\Users\ronny\bedrock-server-docker\data`). Wird stattdessen aus einer WSL2-Shell heraus gearbeitet (das Projekt liegt im Linux-Dateisystem von WSL), stattdessen den WSL-Pfad eintragen (siehe Beispiel in `.env.example`) - Docker Desktop löst beide Formen zum jeweils "richtigen" Host-Pfad auf, aber nur passend zu der Umgebung, aus der `docker compose` gestartet wird.
+- **Firewall**: Beim ersten Start fragt Windows meist nach, ob Docker Desktop / `com.docker.backend.exe` im Netzwerk kommunizieren darf - das bestätigen. Damit das Kind von einem anderen Gerät im Heimnetz auf die Welt-Kacheln (`http://<windows-rechner-ip>:3000`) und den Minecraft-Server selbst (UDP 19132) zugreifen kann, müssen in der Windows-Firewall eingehende Verbindungen auf TCP 3000 und UDP 19132 erlaubt sein (Docker Desktop legt die Regel für gemappte Ports meist automatisch an; falls nicht, manuell über *Windows Defender Firewall → Erweiterte Einstellungen → Eingehende Regeln* ergänzen).
+- Zugriff vom Kind-Gerät erfolgt über die **lokale IP des Windows-Rechners**, nicht `localhost` (z.B. `http://192.168.1.23:3000`) - IP z.B. per `ipconfig` ermitteln. Am einfachsten fest per DHCP-Reservierung oder statischer IP vergeben, damit sich die Adresse nicht ändert.
 
 ## Alten Einzel-Container entfernen
 
