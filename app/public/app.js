@@ -4,6 +4,11 @@ const confirmText = document.getElementById("confirm-text");
 const confirmYes = document.getElementById("confirm-yes");
 const confirmNo = document.getElementById("confirm-no");
 
+const logsOverlay = document.getElementById("logs-overlay");
+const logsTitle = document.getElementById("logs-title");
+const logContent = document.getElementById("log-content");
+const logsClose = document.getElementById("logs-close");
+
 const STATUS_LABELS = {
   running: "Läuft",
   stopped: "Gestoppt",
@@ -12,10 +17,14 @@ const STATUS_LABELS = {
   not_created: "Noch nie gestartet",
 };
 
+// Worlds in these states have a container that can actually produce logs.
+const LOGGABLE_STATUSES = ["running", "starting", "stopping", "stopped"];
+
 let pollTimer = null;
 let pendingId = null; // world.id currently switching-to or being stopped
 let pendingDeadline = null;
 let pendingKind = null; // "start" | "stop"
+let logSource = null;
 
 function render(worlds) {
   worldsEl.innerHTML = "";
@@ -69,6 +78,17 @@ function render(worlds) {
       tile.appendChild(stopBtn);
     } else if (!world.missing && world.status !== "starting" && world.status !== "stopping") {
       tile.addEventListener("click", () => confirmSwitch(world, worlds));
+    }
+
+    if (LOGGABLE_STATUSES.includes(world.status)) {
+      const logsBtn = document.createElement("button");
+      logsBtn.className = "btn btn-logs";
+      logsBtn.textContent = "Logs";
+      logsBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openLogs(world);
+      });
+      tile.appendChild(logsBtn);
     }
 
     worldsEl.appendChild(tile);
@@ -141,6 +161,7 @@ function confirmSwitch(world, allWorlds) {
     pendingKind = "start";
     pendingDeadline = Date.now() + 90_000;
     await fetch(`/api/worlds/${world.id}/activate`, { method: "POST" });
+    openLogs(world);
   });
 }
 
@@ -152,6 +173,42 @@ function confirmStop(world) {
     await fetch(`/api/worlds/${world.id}/stop`, { method: "POST" });
   });
 }
+
+function isAtBottom(el) {
+  return el.scrollHeight - el.clientHeight - el.scrollTop < 40;
+}
+
+function appendLogLine(text) {
+  const stick = isAtBottom(logContent);
+  logContent.append(text + "\n");
+  const lines = logContent.textContent.split("\n");
+  if (lines.length > 2000) logContent.textContent = lines.slice(-2000).join("\n");
+  if (stick) logContent.scrollTop = logContent.scrollHeight;
+}
+
+function openLogs(world) {
+  if (logSource) closeLogs();
+  logsTitle.textContent = `Log: ${world.displayName}`;
+  logContent.textContent = "";
+  logsOverlay.classList.remove("hidden");
+
+  logSource = new EventSource(`/api/worlds/${world.id}/logs`);
+  logSource.onmessage = (e) => appendLogLine(e.data);
+  logSource.addEventListener("ended", () => appendLogLine("--- Verbindung beendet ---"));
+  // No extra onerror handling: EventSource auto-reconnects on a stream that
+  // just ended (container not running yet / stopped), and gives up on its
+  // own after a hard 404 (world has no container at all) - both desired.
+}
+
+function closeLogs() {
+  if (logSource) {
+    logSource.close();
+    logSource = null;
+  }
+  logsOverlay.classList.add("hidden");
+}
+
+logsClose.addEventListener("click", closeLogs);
 
 refresh();
 pollTimer = setInterval(refresh, 2000);

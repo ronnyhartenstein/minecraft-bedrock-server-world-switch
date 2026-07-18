@@ -200,3 +200,44 @@ h1 {
   padding: 0.4rem 1rem;
   font-size: 0.9rem;
 }
+
+.btn-logs {
+  background: var(--accent);
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
+}
+
+.logs-box {
+  background: #0d1117;
+  border-radius: 1rem;
+  padding: 1rem;
+  width: min(90vw, 720px);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #e6edf3;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.log-content {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.75rem;
+  background: #010409;
+  color: #7ee787;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border-radius: 0.6rem;
+}

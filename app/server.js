@@ -1,9 +1,10 @@
 const path = require("path");
+const { StringDecoder } = require("string_decoder");
 const express = require("express");
 
 const { PORT } = require("./src/config");
 const { syncWorlds, loadConfig } = require("./src/worlds");
-const { switchToWorld, stopWorld, getStatusByContainerName } = require("./src/docker");
+const { switchToWorld, stopWorld, streamLogs, getStatusByContainerName } = require("./src/docker");
 
 const app = express();
 app.use(express.json());
@@ -85,6 +86,73 @@ app.post("/api/worlds/:id/stop", async (req, res) => {
   } finally {
     stopping = null;
   }
+});
+
+app.get("/api/worlds/:id/logs", async (req, res) => {
+  const { worlds } = loadConfig();
+  const world = worlds.find((w) => w.id === req.params.id);
+  if (!world) return res.status(404).end();
+
+  let dockerStream;
+  try {
+    dockerStream = await streamLogs(world);
+  } catch (err) {
+    console.error(`Log-Stream-Fehler für ${world.id}:`, err.message);
+    return res.status(500).end();
+  }
+  if (!dockerStream) return res.status(404).end();
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+
+  // Docker log chunks don't align to line boundaries, and a chunk can end
+  // mid-UTF-8-character (e.g. umlauts in player names) - StringDecoder
+  // handles that incrementally. Buffer up to the next newline and emit one
+  // SSE `data:` frame per complete line.
+  const decoder = new StringDecoder("utf8");
+  let buffer = "";
+  const onData = (chunk) => {
+    buffer += decoder.write(chunk);
+    let idx;
+    while ((idx = buffer.indexOf("\n")) !== -1) {
+      const line = buffer.slice(0, idx).replace(/\r$/, "");
+      buffer = buffer.slice(idx + 1);
+      res.write(`data: ${line}\n\n`);
+    }
+  };
+
+  const ping = setInterval(() => res.write(": ping\n\n"), 20_000);
+
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    clearInterval(ping);
+    dockerStream.off("data", onData);
+    dockerStream.off("end", onEnd);
+    dockerStream.off("error", onError);
+    dockerStream.destroy();
+  };
+  const onEnd = () => {
+    res.write("event: ended\ndata: stream ended\n\n");
+    cleanup();
+    res.end();
+  };
+  const onError = (err) => {
+    console.error(`Log-Stream für ${world.id} unterbrochen:`, err.message);
+    cleanup();
+    res.end();
+  };
+
+  dockerStream.on("data", onData);
+  dockerStream.on("end", onEnd);
+  dockerStream.on("error", onError);
+  req.on("close", cleanup);
 });
 
 app.listen(PORT, () => {

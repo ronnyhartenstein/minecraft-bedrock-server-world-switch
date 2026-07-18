@@ -21,6 +21,9 @@ const WORLDS_MOUNT = process.env.WORLDS_MOUNT || "/worlds";
 const CONFIG_FILE = process.env.CONFIG_FILE || "/app/data/worlds.json";
 const PORT = process.env.PORT || 3000;
 
+// Lines of history sent when a log stream is first opened.
+const LOG_TAIL_LINES = 200;
+
 module.exports = {
   IMAGE,
   CONTAINER_PREFIX,
@@ -32,4 +35,5 @@ module.exports = {
   WORLDS_MOUNT,
   CONFIG_FILE,
   PORT,
+  LOG_TAIL_LINES,
 };

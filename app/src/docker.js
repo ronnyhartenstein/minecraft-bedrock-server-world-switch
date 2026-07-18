@@ -8,6 +8,7 @@ const {
   UDP_PORT,
   DEFAULT_ENV,
   HOST_DATA_PATH,
+  LOG_TAIL_LINES,
 } = require("./config");
 
 const docker = new Docker(); // talks to /var/run/docker.sock
@@ -115,6 +116,29 @@ async function stopWorld(world) {
   await stopContainer(container.id);
 }
 
+// Briefly polls for a world's container to exist. Needed because the
+// frontend opens the log stream right after POST /activate, but
+// switchToWorld() may still be stopping the previous world's container
+// (up to a 30s grace timeout) before the new one gets created.
+async function waitForContainer(world, { retries = 10, intervalMs = 500 } = {}) {
+  for (let i = 0; i < retries; i++) {
+    const container = await findContainerByName(world.containerName);
+    if (container) return container;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return null;
+}
+
+// Live log stream for a world's container. Containers are created with
+// Tty: true (see ensureContainerForWorld), so logs({follow:true}) resolves
+// to a plain-text byte stream - no stdout/stderr demuxing needed. Returns
+// null if the container still doesn't exist after the retry budget.
+async function streamLogs(world, { tail = LOG_TAIL_LINES } = {}) {
+  const container = await waitForContainer(world);
+  if (!container) return null;
+  return container.logs({ follow: true, stdout: true, stderr: true, tail });
+}
+
 module.exports = {
   docker,
   listRealmContainers,
@@ -122,4 +146,5 @@ module.exports = {
   ensureContainerForWorld,
   switchToWorld,
   stopWorld,
+  streamLogs,
 };
