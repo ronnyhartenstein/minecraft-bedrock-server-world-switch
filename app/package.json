@@ -1,0 +1,14 @@
+{
+  "name": "mc-realm-switcher",
+  "version": "1.0.0",
+  "description": "Kid-friendly web UI to switch between Minecraft Bedrock worlds, each running in its own Docker container",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dockerode": "^4.0.2",
+    "express": "^4.19.2"
+  }
+}

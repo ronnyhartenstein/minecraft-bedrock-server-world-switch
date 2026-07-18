@@ -1,0 +1,27 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+- `docker compose up -d --build` – build and run the switcher UI (only way to run it; there is no local `npm start` workflow since the app talks to `/var/run/docker.sock` and expects to run containerized)
+- `docker compose logs -f` – tail the UI's logs
+- `cd app && npm install` – install dependencies (dockerode, express) if editing outside the container
+- No test suite and no lint script exist (`app/package.json` only defines `start`).
+
+## Architecture
+
+This is a small Node/Express app (`app/`) that lets a user switch between multiple Minecraft Bedrock worlds, each running in its own Docker container, without ever having two running at once (they share host UDP port 19132).
+
+**Docker-outside-of-Docker**: the UI itself runs in a container (`realm-switcher-ui`, see `docker-compose.yml`) with `/var/run/docker.sock` bind-mounted in, and uses `dockerode` (`app/src/docker.js`) to talk to the *host's* Docker daemon. This means any bind-mount source paths the app passes to `createContainer` (e.g. for `-v <data>:/data`) must be **host** paths, not paths inside the UI container. That's why `HOST_DATA_PATH` (env var, set by the user in `.env`) is passed straight through as the bind source, separately from `/worlds` (a read-only mount used only so the UI can list world folder names).
+
+**Container naming convention matters**: world containers are named `mc-realm-<slug>` (`CONTAINER_PREFIX` in `app/src/config.js`), and `app/src/docker.js` finds/manages them by matching that name prefix. The UI's own container is deliberately named `realm-switcher-ui` (*not* `mc-realm-*`) so it can't match its own filter and try to stop itself — `docker.js` additionally guards against this via `OWN_HOSTNAME` (Docker sets a container's hostname to its own container ID). Keep both safeguards if renaming anything here.
+
+**Data flow / module responsibilities**:
+- `app/src/config.js` — static defaults: the `DEFAULT_ENV` block mirrors the original single-container `docker run` command (OPS, DIFFICULTY, GAMEMODE, etc.), plus paths/constants read from env vars (`HOST_DATA_PATH`, `WORLDS_MOUNT`, `CONFIG_FILE`, `PORT`).
+- `app/src/worlds.js` — discovers world folders under `/worlds` and reconciles them against the persisted `app/data/worlds.json` (`syncWorlds()`): new folders get auto-added with defaults, folders that disappear are flagged `missing: true` rather than deleted (no data loss). Per-world `env` overrides in `worlds.json` are merged on top of `DEFAULT_ENV` at container-creation time.
+- `app/src/docker.js` — all Docker Engine API calls via `dockerode`. `switchToWorld()` is the core operation: stop any other running `mc-realm-*` container, `ensureContainerForWorld()` (create if it doesn't exist yet, using the merged env + `HOST_DATA_PATH` bind + fixed UDP port binding + `RestartPolicy: unless-stopped`), then start it.
+- `server.js` — Express app exposing `GET /api/worlds`, `GET /api/status`, `POST /api/worlds/:id/activate` (fires the switch asynchronously, responds `202` immediately; a module-level `switching` variable tracks the in-flight target so `GET /api/worlds` can report a `starting` status before the container is actually `running`). Serves `app/public/` statically.
+- `app/public/` — plain HTML/CSS/JS frontend (no build step, no framework): tile grid, confirm-before-switch dialog, polls `/api/worlds` every 2s to reflect status changes.
+
+**Known constraint from testing**: switching away from a world can take up to the `docker stop` grace timeout (30s, hardcoded in `stopContainer()` in `docker.js`) if the running server doesn't exit promptly on SIGTERM — this is expected with the real itzg/minecraft-bedrock-server image (it saves the world on SIGTERM) and the frontend's poll loop has a 90s timeout before it shows an error.

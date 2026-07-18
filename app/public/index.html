@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Minecraft Welten</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>⛏️ Welt auswählen</h1>
+    </header>
+
+    <main id="worlds" class="grid">
+      <p class="loading">Lade Welten…</p>
+    </main>
+
+    <div id="confirm-overlay" class="overlay hidden">
+      <div class="confirm-box">
+        <p id="confirm-text"></p>
+        <div class="confirm-buttons">
+          <button id="confirm-yes" class="btn btn-primary">Ja, wechseln</button>
+          <button id="confirm-no" class="btn">Abbrechen</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+services:
+  mc-realm-switcher:
+    build: ./app
+    container_name: realm-switcher-ui
+    ports:
+      - "3000:3000"
+    environment:
+      - HOST_DATA_PATH=${HOST_DATA_PATH}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${WORLDS_DIR:-./bedrock-server-docker/data/worlds}:/worlds:ro
+      - ./app/data:/app/data
+    restart: unless-stopped
