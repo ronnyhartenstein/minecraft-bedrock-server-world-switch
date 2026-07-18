@@ -40,8 +40,7 @@ function render(worlds) {
     }`;
 
     const icon = document.createElement("div");
-    icon.className = "tile-icon";
-    icon.textContent = world.status === "running" ? "🟢" : "🌍";
+    icon.className = `block-icon ${world.status}${world.missing ? " missing" : ""}`;
     tile.appendChild(icon);
 
     const name = document.createElement("div");
@@ -62,8 +61,8 @@ function render(worlds) {
     if (world.missing) {
       const warn = document.createElement("div");
       warn.textContent = "Ordner fehlt";
-      warn.style.color = "#c0392b";
-      warn.style.fontSize = "0.85rem";
+      warn.style.color = "#ff8b7d";
+      warn.style.fontSize = "0.9rem";
       tile.appendChild(warn);
     }
 
