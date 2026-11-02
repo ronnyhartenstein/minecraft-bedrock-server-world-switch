@@ -71,6 +71,52 @@ Der bisherige Container (`mc-bedrock`) belegt denselben Port und sollte gestoppt
 docker rm -f mc-bedrock
 ```
 
+## Addons/Mods auf den Server bringen
+
+Bedrock kennt keine direkte Server-seitige Mod-Installation wie Java - ein Addon muss erst lokal in eine Welt eingebunden und die fertige Welt dann als `.mcworld` auf den Server kopiert werden.
+
+**Quellen für Addons:**
+
+- Offizieller Marktplatz: [minecraft.net/de-de/catalog](https://www.minecraft.net/de-de/catalog) (kostenpflichtig)
+- Kostenlos: [CurseForge - Minecraft Bedrock Addons](https://www.curseforge.com/minecraft-bedrock/search?page=1&pageSize=20&sortBy=relevancy&class=addons)
+- [mcpedl.com/category/mods/addons](https://mcpedl.com/category/mods/addons/)
+
+**Ablauf:**
+
+1. Addon-Datei (`.mcpack`/`.mcaddon`) auf einem Windows-Rechner mit installiertem Minecraft Bedrock herunterladen und ausführen - das importiert automatisch in das **lokale Spiel**, nicht auf den Server.
+2. In Minecraft Bedrock (lokal) eine neue Welt erstellen und die gewünschten Addons in den Welteinstellungen aktivieren.
+3. Welt aus dem Spiel heraus exportieren (Einstellungen → Welt bearbeiten → Exportieren) → Ergebnis ist eine `.mcworld`-Datei.
+4. `.mcworld` ist ein ZIP - entpacken und den Ordnerinhalt nach `bedrock-server-docker/data/worlds/<neuer-weltname>/` kopieren.
+5. Neuen Weltordner beim Switcher bekannt machen: Seite neu laden bzw. kurz warten - `syncWorlds()` erkennt neue Ordner unter `worlds` automatisch und legt einen Eintrag mit Default-Einstellungen an (kein manuelles Bearbeiten von `server.properties` nötig, `LEVEL_NAME` wird aus dem Ordnernamen abgeleitet).
+
+## Mod-Vorschläge
+
+Ein paar Addons zum Ausprobieren (Stand: Juli 2026, Quelle mcpedl/CurseForge - Links vorher prüfen, ob noch aktuell):
+
+**Allgemein / Tools & Strukturen:**
+- [More Tools](https://www.curseforge.com/minecraft-bedrock/addons/more-tools-addon)
+- [More Simple Structures](https://www.curseforge.com/minecraft-bedrock/addons/more-simple-structures-addon)
+- [Better on Bedrock](https://www.curseforge.com/minecraft-bedrock/addons/better-on-bedrock)
+- [Structures in one Click](https://www.curseforge.com/minecraft-bedrock/addons/structures-in-just-one-click)
+
+**Boss-Monster / Kreaturen:**
+- [Bedrock Reimagined](https://www.curseforge.com/minecraft-bedrock/addons/bedrock-reimagined) (Boss-Monster)
+- [Mutant Creatures](https://www.curseforge.com/minecraft-bedrock/addons/mutant-creatures-addon)
+
+**Zombie-Survival** (Idee: als eigene Welt auf dem Mini-PC):
+- [Rise and Survive](https://www.curseforge.com/minecraft-bedrock/addons/rise-and-survive)
+- [Project Walker](https://www.curseforge.com/minecraft-bedrock/addons/project-walker)
+- [True Survival](https://www.curseforge.com/minecraft-bedrock/addons/true-survival-zombie-apocalypse-addon)
+
+**Dino-Addons:**
+- [Dino Land](https://mcpedl.com/dino-land/)
+- [ArkCraft Add-on](https://mcpedl.com/arkcraft-add-on/) - sehr umfangreich
+- [Sculk Dinosaurs Add-on](https://www.curseforge.com/minecraft-bedrock/addons/sculk-dinosaurs-add-on) (CurseForge) - Dinos nicht reitbar
+- [Jurassic Addon](https://mcpedl.com/jurassic-addon/) - vermutlich ebenfalls nicht reitbar
+- [Explosive Eggs Addon](https://mcpedl.com/explosive-eggs-addon/)
+
+Nicht Bedrock-kompatibel (nur Java, falls mal relevant): [Cracker's Wither Storm Mod](https://www.curseforge.com/minecraft/mc-mods/crackers-wither-storm-mod) (CurseForge, Video vorhanden).
+
 ## Funktionsweise
 
 - Die UI (Container `realm-switcher-ui`, bewusst *nicht* mit `mc-realm-` Präfix benannt, damit sie sich nicht selbst als Welt-Container erkennt) läuft als eigener Container, gemountet mit dem Docker-Socket (`/var/run/docker.sock`) sowie read-only mit dem `worlds`-Ordner (nur zum Auflisten der vorhandenen Welten).
