@@ -2,7 +2,8 @@ const IMAGE = "itzg/minecraft-bedrock-server";
 const CONTAINER_PREFIX = "mc-realm-";
 const MANAGED_LABEL = "managed-by";
 const MANAGED_LABEL_VALUE = "mc-realm-switcher";
-const UDP_PORT = "19132/udp";
+// NetherNet (BDS default) signals over TCP and plays over UDP on the same port.
+const SERVER_PORTS = ["19132/tcp", "19132/udp"];
 
 // Defaults taken from the previous single-container `docker run` command.
 // Per-world overrides in worlds.json win over these.
@@ -29,7 +30,7 @@ module.exports = {
   CONTAINER_PREFIX,
   MANAGED_LABEL,
   MANAGED_LABEL_VALUE,
-  UDP_PORT,
+  SERVER_PORTS,
   DEFAULT_ENV,
   HOST_DATA_PATH,
   WORLDS_MOUNT,

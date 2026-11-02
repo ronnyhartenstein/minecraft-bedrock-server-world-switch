@@ -1,6 +1,6 @@
 # Minecraft Bedrock Welt-Switcher
 
-Kleine Web-UI, um zwischen mehreren Minecraft-Bedrock-Welten umzuschalten, ohne von Hand Docker-Befehle tippen zu müssen. Jede Welt läuft in ihrem eigenen Container (`mc-realm-<weltname>`), aber es läuft immer nur einer gleichzeitig (gemeinsamer Port 19132/udp).
+Kleine Web-UI, um zwischen mehreren Minecraft-Bedrock-Welten umzuschalten, ohne von Hand Docker-Befehle tippen zu müssen. Jede Welt läuft in ihrem eigenen Container (`mc-realm-<weltname>`), aber es läuft immer nur einer gleichzeitig (gemeinsamer Port 19132 für TCP und UDP).
 
 ## Voraussetzungen
 

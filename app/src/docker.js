@@ -5,7 +5,7 @@ const {
   CONTAINER_PREFIX,
   MANAGED_LABEL,
   MANAGED_LABEL_VALUE,
-  UDP_PORT,
+  SERVER_PORTS,
   DEFAULT_ENV,
   HOST_DATA_PATH,
   LOG_TAIL_LINES,
@@ -55,9 +55,22 @@ async function findContainerByName(name) {
   return match ? docker.getContainer(match.Id) : null;
 }
 
+// Port bindings can't be changed on an existing container, so one created
+// before SERVER_PORTS changed has to be replaced. World data is safe: it lives
+// in the /data bind mount, not in the container.
+async function hasCurrentPortBindings(container) {
+  const info = await container.inspect();
+  const bindings = info.HostConfig.PortBindings || {};
+  return SERVER_PORTS.every((port) => bindings[port]);
+}
+
 async function ensureContainerForWorld(world) {
   const existing = await findContainerByName(world.containerName);
-  if (existing) return existing;
+  if (existing) {
+    if (await hasCurrentPortBindings(existing)) return existing;
+    await stopContainer(existing.id);
+    await existing.remove();
+  }
 
   if (!HOST_DATA_PATH) {
     throw new Error(
@@ -71,11 +84,13 @@ async function ensureContainerForWorld(world) {
     Tty: true,
     OpenStdin: true,
     Env: envListFor(world),
-    ExposedPorts: { [UDP_PORT]: {} },
+    ExposedPorts: Object.fromEntries(SERVER_PORTS.map((port) => [port, {}])),
     Labels: { [MANAGED_LABEL]: MANAGED_LABEL_VALUE },
     HostConfig: {
       Binds: [`${HOST_DATA_PATH}:/data`],
-      PortBindings: { [UDP_PORT]: [{ HostPort: "19132" }] },
+      PortBindings: Object.fromEntries(
+        SERVER_PORTS.map((port) => [port, [{ HostPort: "19132" }]])
+      ),
       RestartPolicy: { Name: "unless-stopped" },
     },
   });
